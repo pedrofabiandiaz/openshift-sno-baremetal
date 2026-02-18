@@ -150,6 +150,23 @@ For Operators (optional, add if needed):
         - name: <operator-name>   # Or omit packages to mirror all
 ```
 
+**Red Hat OpenShift AI (RHOAI):** To install RHOAI in a disconnected environment, use the provided ImageSetConfiguration that includes the required operators and notebook images:
+
+| File | Purpose |
+|------|---------|
+| [`imageset-rhoai.yaml`](imageset-rhoai.yaml) | Operators: rhods-operator, servicemeshoperator3, nfd, rhcl-operator, kueue-operator, metallb-operator, gpu-operator-certified; plus MODH notebook/workload images |
+
+For a complete air-gapped install with RHOAI, either:
+- **Merge** the `operators` and `additionalImages` from `imageset-rhoai.yaml` into your base config (which includes `platform`), or
+- **Run oc-mirror twice:** first with platform + base operators for OpenShift install, then with `imageset-rhoai.yaml` to add RHOAI content.
+
+```bash
+# Example: Mirror RHOAI operators and images (after OpenShift base)
+oc mirror --config imageset-rhoai.yaml file:///path/to/mirror-dir
+```
+
+> **Note:** `imageset-rhoai.yaml` uses `apiVersion: mirror.openshift.io/v1alpha2`. If using oc-mirror v2 (`--v2`), you may need to convert to `v2alpha1` or run without the v2 flag. Check [oc-mirror documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/disconnected_environments/about-installing-oc-mirror-v2) for compatibility.
+
 #### 3.4.3 Configure Registry Credentials
 
 ```bash
@@ -661,3 +678,4 @@ control-plane.example.com    Ready    master,worker   10m   v1.33.x
 - [Red Hat OpenShift on HPE Bare Metal](https://catalog.redhat.com/solutions/detail/dc5207e0-a8a1-11ed-b4d6-8794106d92d0)
 - [Disconnected installation mirroring](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/disconnected_environments/)
 - [oc-mirror plugin v2](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/disconnected_environments/about-installing-oc-mirror-v2)
+- [Red Hat OpenShift AI disconnected deployment](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/installing_and_uninstalling_openshift_ai_self-managed_in_a_disconnected_environment/) — use [`imageset-rhoai.yaml`](imageset-rhoai.yaml) for operators and notebook images
