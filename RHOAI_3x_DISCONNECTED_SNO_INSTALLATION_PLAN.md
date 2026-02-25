@@ -94,16 +94,9 @@ Images are **scanned** and **quarantined** before being **manually imported** in
 - **Identity:** Use an IdP and a user with `cluster-admin`; **kubeadmin is not allowed** for RHOAI.
 - **Open Data Hub:** Must **not** be installed on the cluster (RHOAI 3.x replaces it).
 
-### 2.7 MetalLB (Required for Bare Metal LoadBalancer Services)
+### 2.7 Ingress and Load Balancing (RHOAI 3.2+)
 
-On bare metal (no cloud load balancer), **MetalLB** is required so that Kubernetes `LoadBalancer`-type Services receive external IPs. RHOAI uses LoadBalancer services (e.g. dashboard, model serving). The [imageset-rhoai.yaml](imageset-rhoai.yaml) in this repo includes the **metallb-operator** package; ensure its images are in your Artifactory image set.
-
-| Item | Requirement |
-|------|-------------|
-| **Operator** | MetalLB Operator installed via the **Kustomize repository** (with other operators); catalog backed by Artifactory |
-| **When to install** | As part of the operator Kustomize apply (Step 5) — **before** or **with** RHOAI so LoadBalancer services get IPs as soon as RHOAI creates them |
-| **Configuration** | Create at least one **IPAddressPool** (or legacy AddressPool) with a range of IPs in your network that are routable to the cluster nodes; optionally configure BGP if you use it |
-| **IP range** | Choose an IP range that does not overlap with cluster `machineNetwork`, service network, or other in-use ranges; ensure the range is reserved for MetalLB in your network plan |
+In **RHOAI 3.2+**, the **Gateway API** ingress is configurable and can use **Cluster IP mode** for load balancing. A separate load balancer (e.g. MetalLB) is **not** required for typical deployments; configure the RHOAI Gateway API ingress for Cluster IP as needed for your environment.
 
 ### 2.8 Optional but Common for A100 / RHOAI
 
@@ -114,17 +107,17 @@ On bare metal (no cloud load balancer), **MetalLB** is required so that Kubernet
 
 ### 2.9 Operator Installation (Kustomize Repository)
 
-Operators (RHOAI, MetalLB, NFD, GPU Operator, and other dependencies) are **not** installed manually via the web console one-by-one. A **separate repository** is provided that contains **Kustomize** artifacts defining the CRs (Custom Resources) required to:
+Operators (RHOAI, NFD, GPU Operator, and other dependencies) are **not** installed manually via the web console one-by-one. A **separate repository** is provided that contains **Kustomize** artifacts defining the CRs (Custom Resources) required to:
 
 - Install the operators (e.g. **Subscription**, **OperatorGroup**) from the Artifactory-backed catalog.
-- Configure operator instances (e.g. MetalLB **MetalLB** instance and **IPAddressPool**, RHOAI **DataScienceCluster** or component CRs).
+- Configure operator instances (e.g. RHOAI **DataScienceCluster** or component CRs, Gateway API ingress in Cluster IP mode if desired).
 
 | Item | Requirement |
 |------|-------------|
 | **Repository** | Separate repository with Kustomize overlays/directories for each operator or a combined overlay for the full stack. |
-| **Contents** | Manifests for Subscriptions (and OperatorGroups where needed), plus any CRs needed after the operator is installed (e.g. MetalLB address pool, RHOAI component config). |
-| **Apply order** | Apply in the order required by dependencies (e.g. MetalLB and NFD before or with RHOAI; cert-manager before model serving). Use `kustomize build <overlay> \| oc apply -f -` or `oc apply -k <overlay>`. |
-| **Customization** | Overlays or vars for environment-specific values (e.g. MetalLB IP range, RHOAI namespace, channel). |
+| **Contents** | Manifests for Subscriptions (and OperatorGroups where needed), plus any CRs needed after the operator is installed (e.g. RHOAI component config). |
+| **Apply order** | Apply in the order required by dependencies (e.g. NFD before or with RHOAI; cert-manager before model serving). Use `kustomize build <overlay> \| oc apply -f -` or `oc apply -k <overlay>`. |
+| **Customization** | Overlays or vars for environment-specific values (e.g. RHOAI namespace, channel, Gateway API / ingress settings). |
 
 ---
 
@@ -139,7 +132,7 @@ Execute in this order. **Image flow is script-based: pull → scan → quarantin
 5. **Quarantine** — Keep images in quarantine until scan results are reviewed and approved.
 6. **Import to Artifactory** — Manually (or via approved automation) import only approved images from quarantine into Artifactory, preserving tags/digests and repository paths required by OpenShift and RHOAI.
 7. **Configure cluster to use Artifactory** — In the disconnected environment: ImageDigestMirrorSet / ImageContentSourcePolicy so the cluster pulls from Artifactory; create CatalogSource(s) for operators if not already defined in the Kustomize repo (see [Step 4](#step-4-configure-cluster-to-use-artifactory) and [Risks](#5-risks-issues-and-mitigations)).
-8. **Install and configure operators via Kustomize** — Apply the provided **Kustomize repository** to install and configure the required operators (MetalLB, RHOAI, NFD, GPU Operator, etc.) and their CRs. This includes MetalLB Operator + IPAddressPool (or AddressPool) for LoadBalancer services, and the Red Hat OpenShift AI Operator (channel **fast-3.x**) plus any dependency operators. Apply in the order defined by the repository (see [Step 5](#step-5-install-and-configure-operators-via-kustomize)).
+8. **Install and configure operators via Kustomize** — Apply the provided **Kustomize repository** to install and configure the required operators (RHOAI, NFD, GPU Operator, etc.) and their CRs, including the Red Hat OpenShift AI Operator (channel **fast-3.x**). Configure Gateway API ingress for **Cluster IP mode** (RHOAI 3.2+) as needed so load balancing does not require an external load balancer. Apply in the order defined by the repository (see [Step 5](#step-5-install-and-configure-operators-via-kustomize)).
 9. **Install OpenShift AI components** — Create/configure the OpenShift AI instance and enable desired components (workbenches, pipelines, Kueue, model serving, etc.), either via the same Kustomize repo (CRs for DataScienceCluster/components) or via console/CLI.
 11. **Configure cluster for disconnected** — Samples Operator for restricted network; user/administrator groups; any component-specific config (object storage, custom namespaces, etc.).
 12. **Enable and verify GPUs** — NVIDIA GPU Operator, NFD, and optional KMM; verify A100s are visible and usable by RHOAI.
@@ -178,16 +171,14 @@ Because **oc-mirror is not used**, you must obtain the list of images from anoth
 
 ### Step 5: Install and Configure Operators via Kustomize
 
-Operators (MetalLB, RHOAI, NFD, GPU Operator, and dependencies) are installed and configured by applying a **separate repository of Kustomize artifacts** that define the required CRs (Subscriptions, OperatorGroups, and operator instance CRs such as MetalLB IPAddressPool and RHOAI component config).
+Operators (RHOAI, NFD, GPU Operator, and dependencies) are installed and configured by applying a **separate repository of Kustomize artifacts** that define the required CRs (Subscriptions, OperatorGroups, and operator instance CRs such as RHOAI component config).
 
 - **Repository:** Use the provided **operators Kustomize repository**. It contains (or references) the CRs needed for:
-  - **MetalLB** — Subscription (and OperatorGroup if needed), MetalLB instance, and **IPAddressPool** (or AddressPool) with the IP range for LoadBalancer services. Required so RHOAI dashboard and other LoadBalancer services get external IPs on bare metal.
-  - **Red Hat OpenShift AI Operator** — Subscription (channel **fast-3.x**), and optionally the CRs to create the DataScienceCluster or enable components.
+  - **Red Hat OpenShift AI Operator** — Subscription (channel **fast-3.x**), and optionally the CRs to create the DataScienceCluster or enable components. Configure Gateway API ingress for **Cluster IP mode** (RHOAI 3.2+) so load balancing does not require MetalLB or an external load balancer.
   - **Dependency operators** — NFD, GPU Operator, cert-manager, Kueue, Service Mesh, etc., as required by your RHOAI components.
-- **Apply:** From the repository root or the appropriate overlay, run `kustomize build <overlay> | oc apply -f -` or `oc apply -k <overlay>`. Apply in the order specified by the repository (e.g. MetalLB and NFD before RHOAI if dependencies are layered).
-- **Customization:** Set environment-specific values (e.g. MetalLB IP range, Artifactory catalog source name, namespaces) via Kustomize overlays, `configMapGenerator`, or replacement/patches in the repo.
-- **MetalLB reference:** [Installing the MetalLB Operator (OKD 4.20)](https://docs.okd.io/4.20/networking/networking_operators/metallb-operator/metallb-operator-install.html), [Configuring MetalLB address pools (OKD 4.20)](https://docs.okd.io/4.20/networking/ingress_load_balancing/metallb/metallb-configure-address-pools.html). The Kustomize repo should emit equivalent CRs.
-- **Verify:** Operators become ready (`oc get csv` or Installed Operators in console); MetalLB assigns IPs to LoadBalancer Services (`oc get svc -A | grep LoadBalancer`); RHOAI Operator is installed and components can be enabled.
+- **Apply:** From the repository root or the appropriate overlay, run `kustomize build <overlay> | oc apply -f -` or `oc apply -k <overlay>`. Apply in the order specified by the repository (e.g. NFD before RHOAI if dependencies are layered).
+- **Customization:** Set environment-specific values (e.g. Artifactory catalog source name, namespaces, Gateway API / ingress settings) via Kustomize overlays, `configMapGenerator`, or replacement/patches in the repo.
+- **Verify:** Operators become ready (`oc get csv` or Installed Operators in console); RHOAI Operator is installed and components can be enabled; ingress is configured (e.g. Cluster IP mode) as desired.
 
 ### Step 6: Install OpenShift AI Components (if not in Kustomize)
 
@@ -225,7 +216,6 @@ If the operators Kustomize repository does **not** include the CRs that create t
 | **Default StorageClass** | Ensure a default StorageClass exists before installing RHOAI; fix with [Changing the default storage class](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/storage/dynamic-provisioning#change-default-storage-class_dynamic-provisioning) if needed. |
 | **Samples Operator in disconnected** | Configure Samples Operator for restricted network after install so it uses the mirror registry. |
 | **A100 driver and compatibility** | Use the **NVIDIA GPU Operator** from the mirrored catalog (e.g. `gpu-operator-certified`); ensure OpenShift and RHCOS versions are supported for the driver version shipped by the operator. |
-| **MetalLB IP pool** | Choose an IP range for MetalLB that does not overlap with cluster `machineNetwork`, service network (172.30.0.0/16), or existing DHCP/static assignments. Ensure the range is routable to both nodes. Too small a pool can exhaust IPs as RHOAI creates LoadBalancer services. |
 | **DNS in private/restricted clouds** | In environments without integrated external DNS (e.g. OpenStack, CRC), you may need to configure DNS after the LoadBalancer IP is known: [Configuring External DNS for RHOAI 3.x on OpenStack and Private Clouds](https://access.redhat.com/articles/7133770). |
 | **Object storage** | Pipelines, model serving, and workbenches often need S3-compatible object storage; plan and configure it per component. |
 | **Two servers in cluster** | Both HP servers are cluster nodes (control plane + worker). Artifactory runs elsewhere in the disconnected network. Ensure network and firewall allow **both** the control plane node and the worker node to reach Artifactory. |
@@ -248,8 +238,8 @@ If the operators Kustomize repository does **not** include the CRs that create t
 
 - [ ] **Operators Kustomize repository** available (separate repo with Kustomize artifacts for operator CRs).
 - [ ] CatalogSource(s) for Artifactory-backed catalog applied (from repo or manually).
-- [ ] Kustomize overlay applied in correct order; MetalLB Operator + IPAddressPool (or AddressPool) configured; RHOAI Operator (fast-3.x) and dependency operators (NFD, GPU Operator, etc.) installed.
-- [ ] LoadBalancer Services receive external IPs from MetalLB (`oc get svc -A | grep LoadBalancer`).
+- [ ] Kustomize overlay applied in correct order; RHOAI Operator (fast-3.x) and dependency operators (NFD, GPU Operator, etc.) installed.
+- [ ] Gateway API ingress configured (e.g. Cluster IP mode for RHOAI 3.2+) as needed for your environment.
 
 ### Image Pipeline (Script → Scan → Quarantine → Artifactory)
 
@@ -261,7 +251,7 @@ If the operators Kustomize repository does **not** include the CRs that create t
 
 ### RHOAI Install
 
-- [ ] Operators (MetalLB, RHOAI, NFD, GPU Operator, etc.) installed and configured via the **Kustomize repository** (see [Step 5](#step-5-install-and-configure-operators-via-kustomize)); MetalLB provides IPs for LoadBalancer services.
+- [ ] Operators (RHOAI, NFD, GPU Operator, etc.) installed and configured via the **Kustomize repository** (see [Step 5](#step-5-install-and-configure-operators-via-kustomize)); Gateway API ingress set to Cluster IP mode (RHOAI 3.2+) if desired.
 - [ ] Red Hat OpenShift AI Operator installed (channel fast-3.x) via Kustomize CRs.
 - [ ] OpenShift AI components installed and configured (workbenches, pipelines, serving, etc.), via Kustomize repo or console/CLI.
 - [ ] User and administrator groups configured; dashboard accessible.
@@ -284,14 +274,13 @@ If the operators Kustomize repository does **not** include the CRs that create t
 | **OpenShift 4.20 SNO** | [Installing on a single node](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/installing_on_a_single_node/) |
 | **OpenShift 4.20 – adding workers / 2-node** | [Adding compute nodes](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/installing_on_bare_metal/installing-restricted-network-baremetal) or platform-specific install (bare metal, etc.) for control plane + worker topology |
 | **OpenShift 4.20 disconnected** | [Disconnected environments](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/disconnected_environments/) |
-| **OpenShift / OKD 4.20 MetalLB** | [MetalLB Operator install (OKD 4.20)](https://docs.okd.io/4.20/networking/networking_operators/metallb-operator/metallb-operator-install.html), [MetalLB address pools (OKD 4.20)](https://docs.okd.io/4.20/networking/ingress_load_balancing/metallb/metallb-configure-address-pools.html) — use for bare metal LoadBalancer; OCP docs under Networking if available for your release |
 | **RHOAI image list (no oc-mirror)** | [Mirroring images for disconnected RHOAI](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.0/html/installing_and_uninstalling_openshift_ai_self-managed_in_a_disconnected_environment/deploying-openshift-ai-in-a-disconnected-environment_install#mirroring-images-to-a-private-registry-for-a-disconnected-installation_install) (required image set); [rhoai-disconnected-install-helper](https://github.com/red-hat-data-services/rhoai-disconnected-install-helper); this repo’s [imageset-rhoai.yaml](imageset-rhoai.yaml) |
 | **Manual image copy (skopeo, etc.)** | [Copying images to a registry](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/openshift_images/copying-images-to-registry) (e.g. `oc image mirror` / skopeo) for reference when building your pull script |
 | **RHOAI supported configs 3.x** | [Supported Configurations for 3.x](https://access.redhat.com/articles/rhoai-supported-configs-3.x) |
 | **RHOAI 3.0 upgrade not supported** | [Why upgrades to OpenShift AI 3.0 are not supported](https://access.redhat.com/articles/7133758) |
 | **RHOAI disconnected install helper** | [rhoai-disconnected-install-helper](https://github.com/red-hat-data-services/rhoai-disconnected-install-helper) |
 | **This repo – SNO + worker + disconnected** | [INSTALLATION_PLAN.md](INSTALLATION_PLAN.md), [imageset-rhoai.yaml](imageset-rhoai.yaml) |
-| **Operators (Kustomize)** | A **separate repository** is provided with Kustomize artifacts for the CRs required to install and configure operators (Subscriptions, OperatorGroups, MetalLB, RHOAI, NFD, GPU Operator, etc.). Apply with `kustomize build \| oc apply -f -` or `oc apply -k` in the order defined by the repo. |
+| **Operators (Kustomize)** | A **separate repository** is provided with Kustomize artifacts for the CRs required to install and configure operators (Subscriptions, OperatorGroups, RHOAI, NFD, GPU Operator, etc.). Apply with `kustomize build \| oc apply -f -` or `oc apply -k` in the order defined by the repo. RHOAI 3.2+ Gateway API ingress can use Cluster IP mode; MetalLB is not required. |
 
 ---
 
