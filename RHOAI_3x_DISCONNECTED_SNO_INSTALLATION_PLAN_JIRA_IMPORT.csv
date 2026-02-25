@@ -1,0 +1,58 @@
+Summary,Description,Work Type,Status,Work Item ID,Parent,Labels
+"RHOAI 3.x Disconnected SNO Installation","Install Red Hat OpenShift AI (RHOAI) 3.x in a disconnected environment on a two-node cluster: one Single-Node OpenShift (SNO) control plane plus one worker node using two HP servers with NVIDIA A100 GPUs. Image flow is script-based: pull -> scan -> quarantine -> manual import to Artifactory (no oc-mirror).",Epic,To Do,1,,rhoai;disconnected;sno;installation
+"Architecture and Scope","Define the chosen topology and disconnected environment constraints.",Epic,To Do,2,1,rhoai;architecture
+"Two HP Servers - One SNO + One Worker Node","Chosen topology: Install OpenShift with one control plane node (SNO-style) on the first HP server and one worker node on the second HP server. Both nodes are part of the same cluster. The SNO acts as control plane + worker; the second node is a dedicated worker. Satisfies RHOAI minimum 2 worker nodes requirement.",Story,To Do,3,2,topology;sno;worker
+"Disconnected Environment Setup","No internet access from the cluster. All container images brought in via manual image pipeline: pull by script on connected host -> scan -> quarantine -> manual import to Artifactory. oc-mirror is NOT used. Operator installation via Kustomize artifacts from separate repository.",Story,To Do,4,2,disconnected;images;artifactory
+"Prerequisites","All prerequisites before starting the installation.",Epic,To Do,5,1,prerequisites
+"Red Hat and Subscriptions","Red Hat account with OpenShift Cluster Manager access. OpenShift subscription. RHOAI subscription (Red Hat OpenShift AI Self-Managed). Pull secret from console.redhat.com including Artifactory credentials.",Story,To Do,6,5,redhat;subscriptions
+"OpenShift Cluster Requirements","OpenShift 4.20 (stable). One control plane node (SNO) + one worker node. Disconnected/restricted network. Cluster admin via IdP (not kubeadmin). See INSTALLATION_PLAN.md.",Story,To Do,7,5,openshift;cluster
+"Cluster Node Requirements","Control plane (SNO): 32 vCPUs min, 128 GiB RAM min, NVIDIA A100. Worker: 8 vCPUs min (32+ recommended), 32 GiB RAM min (64+ recommended), NVIDIA A100. Both via NVIDIA GPU Operator.",Story,To Do,8,5,hardware;gpu
+"Image Acquisition Host (Internet-Connected)","Linux host for pull script. 100 GB free disk. Access to quay.io, registry.redhat.io, registry.access.redhat.com. Tools: skopeo, podman, or crane. Red Hat pull secret. Image list from imageset-rhoai.yaml or rhoai-disconnected-install-helper.",Story,To Do,9,5,images;connected
+"Scan Quarantine and Artifactory","Vulnerability/compliance scans on all pulled images. Quarantine until approved. Artifactory as target registry in disconnected network. Reachable by both control plane and worker. Enough storage for platform, operator, and RHOAI images.",Story,To Do,10,5,scan;quarantine;artifactory
+"Storage and Identity","Default StorageClass with dynamic provisioning. IdP and cluster-admin user (kubeadmin not allowed). Open Data Hub must NOT be installed.",Story,To Do,11,5,storage;identity
+"MetalLB for Bare Metal","Required for LoadBalancer Services on bare metal. MetalLB Operator from Kustomize. Create IPAddressPool with routable IP range. Install before or with RHOAI. imageset-rhoai.yaml includes metallb-operator package.",Story,To Do,12,5,metallb;loadbalancer
+"Optional A100/RHOAI Components","Object storage (S3-compatible). NVIDIA GPU Operator. Node Feature Discovery (NFD) Operator. cert-manager for model serving (KServe).",Story,To Do,13,5,optional;gpu;nfd
+"Operator Installation Kustomize Repository","Separate repository with Kustomize artifacts for Subscriptions, OperatorGroups, and operator instance CRs (MetalLB, RHOAI, NFD, GPU Operator). Apply with kustomize build | oc apply -f -. Apply in dependency order.",Story,To Do,14,5,operators;kustomize
+"High-Level Procedure","Execute steps in document order. Image flow: script-based pull -> scan -> quarantine -> manual import to Artifactory.",Epic,To Do,15,1,procedure
+"Step 1 - Confirm cluster requirements","OpenShift 4.20, resources, storage, identity, no ODH.",Task,To Do,16,15,procedure
+"Step 2 - Derive image list","Build list from imageset-rhoai.yaml and/or rhoai-disconnected-install-helper. Include platform images if not in Artifactory.",Task,To Do,17,15,procedure;images
+"Step 3 - Pull images by script","On connected host, run script (skopeo copy or equivalent) to pull each image from source registries to local/staging.",Task,To Do,18,15,procedure;images
+"Step 4 - Scan images","Run organization vulnerability/compliance scans on all pulled images.",Task,To Do,19,15,procedure;scan
+"Step 5 - Quarantine","Keep images in quarantine until scan results reviewed and approved.",Task,To Do,20,15,procedure;quarantine
+"Step 6 - Import to Artifactory","Manually import only approved images to Artifactory. Preserve tags/digests and repository paths.",Task,To Do,21,15,procedure;artifactory
+"Step 7 - Configure cluster for Artifactory","ImageDigestMirrorSet/ICSP. Pull secret. CatalogSource for operators.",Task,To Do,22,15,procedure;cluster
+"Step 8 - Install operators via Kustomize","Apply Kustomize repository: MetalLB, RHOAI, NFD, GPU Operator, etc. In order defined by repo.",Task,To Do,23,15,procedure;operators
+"Step 9 - Install OpenShift AI components","Create/configure OpenShift AI instance. Enable workbenches, pipelines, Kueue, model serving.",Task,To Do,24,15,procedure;rhoai
+"Step 10 - Configure for disconnected","Samples Operator for restricted network. User/administrator groups. Component-specific config.",Task,To Do,25,15,procedure;disconnected
+"Step 11 - Enable and verify GPUs","NVIDIA GPU Operator, NFD, optional KMM. Verify A100s visible and usable by RHOAI.",Task,To Do,26,15,procedure;gpu
+"Detailed Steps with Documentation","Step-by-step procedures with official Red Hat documentation links.",Epic,To Do,27,1,detailed-steps
+"Step 1 - Confirm OpenShift Cluster Requirements","Procedure: Requirements for OpenShift AI Self-Managed (disconnected guide 3.1). Check: OCP 4.20; SNO 32 CPUs/128 GiB; worker 8+ CPUs/32+ GiB; StorageClass; IdP cluster-admin; no ODH. Configure Samples Operator for restricted cluster.",Task,To Do,28,27,cluster;requirements
+"Step 2 - Derive Image List and Pull by Script","Image list from imageset-rhoai.yaml or rhoai-disconnected-install-helper. Script with skopeo copy, podman pull, or crane copy. Include platform, operators, RHOAI additional images. Use Red Hat pull secret.",Task,To Do,29,27,images;script
+"Step 3 - Scan Quarantine and Import to Artifactory","Scan all pulled images. Quarantine until approved. Manual import to Artifactory preserving paths/tags/digests. Build CatalogSource if oc-mirror not used.",Task,To Do,30,27,scan;artifactory
+"Step 4 - Configure Cluster to Use Artifactory","Transfer IDMS/ICSP manifests. Create ImageDigestMirrorSet for registry.redhat.io, quay.io redirect to Artifactory. Add additionalTrustBundle if custom CA. Update pull secret. Create CatalogSource.",Task,To Do,31,27,cluster;artifactory
+"Step 5 - Install and Configure Operators via Kustomize","Apply operators Kustomize repo: MetalLB (Subscription, MetalLB instance, IPAddressPool), RHOAI (channel fast-3.x), NFD, GPU Operator, cert-manager, Kueue, Service Mesh. Customize MetalLB IP range, namespaces. Verify: oc get csv, oc get svc -A | grep LoadBalancer.",Task,To Do,32,27,operators;kustomize
+"Step 6 - Install OpenShift AI Components","If not in Kustomize: Create DataScienceCluster, enable workbenches, AI Pipelines, Kueue, model serving (KServe). Ensure cert-manager, Kueue, Service Mesh, GPU Operator, NFD installed first.",Task,To Do,33,27,rhoai;components
+"Step 7 - Configure Users and Post-Install","Access OpenShift AI dashboard. Add users to OpenShift AI user groups.",Task,To Do,34,27,users;dashboard
+"Step 8 - Enable and Verify NVIDIA A100 GPUs","Install NVIDIA GPU Operator and NFD from Artifactory catalog. Verify A100s detected on both nodes. Ensure workloads can request GPUs.",Task,To Do,35,27,gpu;a100
+"Risks and Mitigations","Documented risks and mitigation strategies.",Epic,To Do,36,1,risks
+"Risk: Control plane single point of failure","With one SNO + one worker, control plane is SPOF. Accept for dev/test/edge. Use full multi-control-plane for production HA.",Task,To Do,37,36,risk;ha
+"Risk: RHOAI 2 worker nodes requirement","One SNO + one worker = two workload nodes. Size SNO at 32 CPU/128 GiB, worker at 8+ CPU/32+ GiB.",Task,To Do,38,36,risk;rhoai
+"Risk: No oc-mirror","Derive image list from imageset-rhoai.yaml or rhoai-disconnected-install-helper. Build operator catalog separately. Use Kustomize repo for operator CRs.",Task,To Do,39,36,risk;images
+"Risk: Scan and quarantine delay","Plan cycles for scan results, approval, import. Avoid assuming one-shot completion.",Task,To Do,40,36,risk;scan
+"Risk: Artifactory layout and OpenShift","ImageDigestMirrorSet must map source paths to Artifactory correctly. Catalog must be OCI-compliant. Verify pull patterns.",Task,To Do,41,36,risk;artifactory
+"Risk: Image list completeness","Ensure script includes every image for chosen RHOAI version. Missing images cause install/runtime failures.",Task,To Do,42,36,risk;images
+"Risk: kubeadmin not allowed","Configure IdP and cluster-admin user before installing RHOAI.",Task,To Do,43,36,risk;identity
+"Risk: No upgrade from 2.x to 3.0","RHOAI 3.0 is new-install only. No in-place upgrade from 2.25. See Red Hat article 7133758.",Task,To Do,44,36,risk;upgrade
+"Risk: Default StorageClass","Ensure default StorageClass exists before RHOAI. Fix per OCP docs if needed.",Task,To Do,45,36,risk;storage
+"Risk: Samples Operator disconnected","Configure Samples Operator for restricted network to use mirror registry.",Task,To Do,46,36,risk;samples
+"Risk: A100 driver compatibility","Use NVIDIA GPU Operator from mirrored catalog. Verify OpenShift/RHCOS support for driver version.",Task,To Do,47,36,risk;gpu
+"Risk: MetalLB IP pool","Choose IP range not overlapping machineNetwork, service network, DHCP. Ensure routable to both nodes. Size pool for RHOAI LoadBalancer services.",Task,To Do,48,36,risk;metallb
+"Risk: DNS in private clouds","May need to configure DNS after LoadBalancer IP known. See Red Hat article 7133770 for OpenStack/private clouds.",Task,To Do,49,36,risk;dns
+"Risk: Object storage","Pipelines, model serving, workbenches need S3-compatible storage. Plan per component.",Task,To Do,50,36,risk;storage
+"Risk: Two servers network","Both nodes must reach Artifactory. Ensure network/firewall allows.",Task,To Do,51,36,risk;network
+"Checklists","Pre-install, operators, image pipeline, RHOAI install, and GPU checklists.",Epic,To Do,52,1,checklists
+"Pre-Install Checklist","OpenShift 4.20 SNO+worker. Node resources. StorageClass. IdP cluster-admin. No ODH. Artifactory reachable. ImageDigestMirrorSet/CatalogSource applied.",Task,To Do,53,52,checklist;pre-install
+"Operators Kustomize Checklist","Operators Kustomize repo available. CatalogSource applied. MetalLB + IPAddressPool. RHOAI (fast-3.x) and dependencies. LoadBalancer Services get MetalLB IPs.",Task,To Do,54,52,checklist;operators
+"Image Pipeline Checklist","Image list from imageset-rhoai.yaml. Pull script successful. Scans run and reviewed. Approved images imported to Artifactory. Operator catalog in Artifactory.",Task,To Do,55,52,checklist;images
+"RHOAI Install Checklist","Operators installed via Kustomize. RHOAI Operator (fast-3.x). Components configured. User groups. Dashboard accessible. Samples Operator for restricted network.",Task,To Do,56,52,checklist;rhoai
+"GPU A100 Checklist","NVIDIA GPU Operator and NFD installed. A100s detected on both nodes. RHOAI workloads can request GPUs.",Task,To Do,57,52,checklist;gpu
