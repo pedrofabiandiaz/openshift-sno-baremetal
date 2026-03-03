@@ -365,7 +365,7 @@ alias coreos-installer='podman run --privileged --pull always --rm \
 coreos-installer iso ignition embed -fi ocp/bootstrap-in-place-for-live-iso.ign rhcos-live.iso
 ```
 
-> For fully disconnected, use a pre-pulled `coreos-installer` image or binary. Alternatively, embed the ignition on the connected host before transfer and only transfer the final ISO.
+> **Disconnected environment:** If the machine cannot reach quay.io, see [Section 7.5](#75-generate-ignition-and-embed-in-iso) for options: embed on a connected host, pre-pull the image with `--pull never`, or use the `coreos-installer` binary from [GitHub releases](https://github.com/coreos/coreos-installer/releases).
 
 ### 3.8 Phase 5: Boot and Install
 
@@ -596,6 +596,12 @@ coreos-installer iso ignition embed -fi ocp/bootstrap-in-place-for-live-iso.ign 
 ```
 
 > **Important:** The embedded certificates are valid for ~24 hours. Use the ISO soon after creation.
+
+**Disconnected environment:** If the machine cannot reach quay.io, use one of these approaches:
+
+1. **Embed on a connected host (recommended):** Run the embedding step on an internet-connected machine, then transfer only the final `rhcos-live.iso` to the disconnected environment.
+2. **Pre-pull the image:** On a connected host: `podman pull quay.io/coreos/coreos-installer:release` and `podman save -o coreos-installer.tar quay.io/coreos/coreos-installer:release`. Transfer the tar to the disconnected host, run `podman load -i coreos-installer.tar`, then use `--pull never` instead of `--pull always` in the alias above.
+3. **Use the binary:** Download the `coreos-installer` binary from [GitHub releases](https://github.com/coreos/coreos-installer/releases) on a connected host, transfer it, and run: `./coreos-installer iso ignition embed -fi ocp/bootstrap-in-place-for-live-iso.ign rhcos-live.iso` (no container required).
 
 ### 7.6 Boot the HP Server
 
