@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 220" width="520" height="220">
+  <defs>
+    <style>
+      .box { fill: #e8f4f8; stroke: #0066cc; stroke-width: 2; }
+      .sno-box { fill: #e8f4f8; stroke: #0066cc; stroke-width: 2; }
+      .worker-box { fill: #e8f4e8; stroke: #228b22; stroke-width: 2; }
+      .cluster-box { fill: none; stroke: #666; stroke-width: 1; stroke-dasharray: 5,5; }
+      .title { font: bold 14px sans-serif; fill: #333; }
+      .label { font: 12px sans-serif; fill: #333; }
+      .small { font: 10px sans-serif; fill: #555; }
+    </style>
+  </defs>
+  <!-- Cluster boundary -->
+  <rect x="10" y="10" width="500" height="200" class="cluster-box" rx="4"/>
+  <text x="20" y="28" class="small">OpenShift 4.20 Cluster (2 nodes)</text>
+  
+  <!-- SNO Node -->
+  <rect x="40" y="50" width="200" height="140" class="sno-box" rx="6"/>
+  <text x="140" y="80" class="title" text-anchor="middle">HP Server 1 (SNO)</text>
+  <text x="140" y="105" class="label" text-anchor="middle">control-plane</text>
+  <text x="140" y="125" class="label" text-anchor="middle">master</text>
+  <text x="140" y="145" class="label" text-anchor="middle">worker</text>
+  <text x="140" y="170" class="small" text-anchor="middle">Bare metal</text>
+  
+  <!-- Arrow -->
+  <line x1="250" y1="120" x2="270" y2="120" stroke="#666" stroke-width="2"/>
+  <polygon points="270,115 280,120 270,125" fill="#666"/>
+  
+  <!-- Worker Node -->
+  <rect x="280" y="50" width="200" height="140" class="worker-box" rx="6"/>
+  <text x="380" y="80" class="title" text-anchor="middle">HP Server 2 (Worker)</text>
+  <text x="380" y="115" class="label" text-anchor="middle">worker</text>
+  <text x="380" y="170" class="small" text-anchor="middle">Bare metal</text>
+</svg>

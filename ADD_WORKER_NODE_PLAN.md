@@ -22,6 +22,10 @@ This plan applies to **user-provisioned bare metal infrastructure** only. Both n
 | **Existing SNO** | control-plane, master, worker | Your current bare metal HP server running OpenShift 4.20 SNO |
 | **New worker** | worker | Additional bare metal HP server for running workloads |
 
+![SNO + Worker topology](images/sno-worker-topology.svg)
+
+*Figure 1: Two-node bare metal cluster — SNO (control plane + worker) and dedicated worker*
+
 The SNO continues to run control plane services and can also run workloads. The new bare metal worker adds compute capacity for additional workloads (e.g., RHOAI, general applications).
 
 ### 1.3 Important Notes
