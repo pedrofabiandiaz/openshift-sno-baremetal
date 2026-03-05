@@ -8,11 +8,11 @@ mirror:
   - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.20
     packages:
     - name: rhods-operator
-      defaultChannel: fast-3.x
+      defaultChannel: stable
       channels:
-      - name: fast-3.x
-        minVersion: 3.2.0
-        maxVersion: 3.2.0
+      - name: stable
+        minVersion: 3.3.0
+        maxVersion: 3.3.0
     - name: servicemeshoperator3
       defaultChannel: stable
       channels:
@@ -35,6 +35,10 @@ mirror:
       defaultChannel: stable
       channels:
       - name: stable
+    - name: lws-operator # LeaderWorkerSet Operator
+      defaultChannel: stable-v1.0
+      channels:
+        - name: stable-v1.0
   - catalog: registry.redhat.io/redhat/certified-operator-index:v4.20
     packages:
     - name: gpu-operator-certified # NVIDIA GPU Operator
