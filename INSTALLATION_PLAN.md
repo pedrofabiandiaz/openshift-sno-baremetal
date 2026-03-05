@@ -593,6 +593,9 @@ alias coreos-installer='podman run --privileged --pull always --rm \
   quay.io/coreos/coreos-installer:release'
 
 coreos-installer iso ignition embed -fi ocp/bootstrap-in-place-for-live-iso.ign rhcos-live.iso
+
+# If you would like to create a new iso instead of overwriting the original file 
+coreos-installer iso ignition embed -fi ocp/bootstrap-in-place-for-live-iso.ign rhcos-live.iso -o rhcos-live-embed.iso
 ```
 
 > **Important:** The embedded certificates are valid for ~24 hours. Use the ISO soon after creation.
