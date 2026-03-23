@@ -1,0 +1,25 @@
+# Linux/amd64 image with oc + oc-mirror for hosts where native oc-mirror is unavailable (e.g. macOS).
+# Build: podman build --platform linux/amd64 -f containers/oc-mirror/Containerfile -t localhost/oc-mirror-worker:latest .
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+ARG OCP_VERSION=4.20.0
+ARG OCP_CLIENT_BASE=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/${OCP_VERSION}
+
+# Image already includes curl-minimal; installing curl would conflict with curl-minimal.
+RUN microdnf install -y tar gzip ca-certificates && microdnf clean all
+
+RUN set -eux; \
+    curl -fL "${OCP_CLIENT_BASE}/openshift-client-linux.tar.gz" -o /tmp/oc.tgz; \
+    curl -fL "${OCP_CLIENT_BASE}/oc-mirror.tar.gz" -o /tmp/oc-mirror.tgz; \
+    tar -xzf /tmp/oc.tgz -C /usr/local/bin oc kubectl; \
+    tar -xzf /tmp/oc-mirror.tgz -C /usr/local/bin oc-mirror; \
+    chmod +x /usr/local/bin/oc /usr/local/bin/kubectl /usr/local/bin/oc-mirror; \
+    rm -f /tmp/oc.tgz /tmp/oc-mirror.tgz
+
+WORKDIR /workspace
+
+ENV PATH=/usr/local/bin:${PATH}
+
+# Override with: podman run ... localhost/oc-mirror-worker:latest oc-mirror --help
+CMD ["oc-mirror", "--help"]
