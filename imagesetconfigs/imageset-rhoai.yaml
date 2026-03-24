@@ -8,9 +8,9 @@ mirror:
   - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.20
     packages:
     - name: rhods-operator
-      defaultChannel: stable
+      defaultChannel: stable-3.3
       channels:
-      - name: stable
+      - name: stable-3.3
         minVersion: 3.3.0
         maxVersion: 3.3.0
     - name: servicemeshoperator3
@@ -35,10 +35,14 @@ mirror:
       defaultChannel: stable
       channels:
       - name: stable
-    - name: lws-operator # LeaderWorkerSet Operator
+    - name: leader-worker-set # LeaderWorkerSet Operator
       defaultChannel: stable-v1.0
       channels:
         - name: stable-v1.0
+    - name: openshift-cert-manager-operator
+      defaultChannel: stable-v1
+      channels:
+        - name: stable-v1
   - catalog: registry.redhat.io/redhat/certified-operator-index:v4.20
     packages:
     - name: gpu-operator-certified # NVIDIA GPU Operator

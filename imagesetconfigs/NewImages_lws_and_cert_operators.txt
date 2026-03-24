@@ -1,0 +1,8 @@
+registry.redhat.io/cert-manager/cert-manager-istio-csr-rhel9@sha256:fb89adfcc4bcdaf21bed27dbc90586fb2b32180259b9f9d6fcf84a38e401fe03
+registry.redhat.io/cert-manager/cert-manager-operator-bundle@sha256:e4e3f81062da90a9cfcdce27085f0624952374a9aec5fbdd5796a09d24f83908
+registry.redhat.io/cert-manager/cert-manager-operator-rhel9@sha256:99526f5a179816df1f7f51df0517136b247d815b7bdce0a5d0eb7cdaf4b5ce7a
+registry.redhat.io/cert-manager/jetstack-cert-manager-acmesolver-rhel9@sha256:38899dcd99bcd1c8c8d2c67cd19d5b1756434028ed2f1b926a282723bd63183e
+registry.redhat.io/cert-manager/jetstack-cert-manager-rhel9@sha256:903ce74138b1ffc735846a7c5fcdf62bbe82ca29568a6b38caec2656f6637671
+registry.redhat.io/leader-worker-set/lws-operator-bundle@sha256:f641cf3b2d6659e26eb0ae49c67a3416152a2fbc2f26f490889a2bd169b9ea06
+registry.redhat.io/leader-worker-set/lws-rhel9-operator@sha256:c202bfa15626262ff22682b64ac57539d28dd35f5960c490f5afea75cef34309
+registry.redhat.io/leader-worker-set/lws-rhel9@sha256:affb303b1173c273231bb50fef07310b0e220d2f08bfc0aa5912d0825e3e0d4f
