@@ -43,6 +43,18 @@ mirror:
       defaultChannel: stable-v1
       channels:
         - name: stable-v1
+    - name: authorino-operator
+      defaultChannel: stable
+      channels:
+        - name: stable
+    - name: limitador-operator
+      defaultChannel: stable
+      channels:
+        - name: stable
+    - name: dns-operator
+      defaultChannel: stable
+      channels:
+        - name: stable
   - catalog: registry.redhat.io/redhat/certified-operator-index:v4.20
     packages:
     - name: gpu-operator-certified # NVIDIA GPU Operator
