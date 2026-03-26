@@ -4,8 +4,10 @@
 # Prerequisites: podman machine running; pull secret from cloud.redhat.com (JSON).
 #
 # Usage:
-#   ./scripts/run-oc-mirror-podman.sh --build
-#   ./scripts/run-oc-mirror-podman.sh [--config|-c imageset.yaml] ...
+#   ./scripts/run-oc-mirror-podman.sh --build          # build image only
+#   ./scripts/run-oc-mirror-podman.sh [--rebuild] [--config|-c imageset.yaml] ...
+#   Default: uses existing localhost/oc-mirror-worker:latest (no rebuild). Missing image is built once.
+#   --rebuild: podman build before run (e.g. after Containerfile changes).
 #   ./scripts/run-oc-mirror-podman.sh -- \
 #     oc-mirror --v2 --config /workspace/imageset-rhoai.yaml file:///mirror
 #
@@ -53,6 +55,7 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 BUILD_ONLY=0
+REBUILD=0
 if [[ "${1:-}" == "--build" ]]; then
   BUILD_ONLY=1
   shift || true
@@ -62,11 +65,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -c|--config)
       if [[ -z "${2:-}" ]]; then
-        echo "usage: $0 [--build] [--config|-c <path-under-repo>] ..." >&2
+        echo "usage: $0 [--build] [--rebuild] [--config|-c <path-under-repo>] ..." >&2
         exit 1
       fi
       CONFIG="$2"
       shift 2
+      ;;
+    --rebuild)
+      REBUILD=1
+      shift
       ;;
     *)
       break
@@ -95,12 +102,26 @@ if [[ ! -f "${CONTAINERFILE}" ]]; then
   exit 1
 fi
 
-echo "Building ${IMAGE_NAME} (linux/amd64)..."
-podman build --platform linux/amd64 -f "${CONTAINERFILE}" -t "${IMAGE_NAME}" "${REPO_ROOT}"
+build_image() {
+  podman build --platform linux/amd64 -f "${CONTAINERFILE}" -t "${IMAGE_NAME}" "${REPO_ROOT}"
+}
 
 if [[ "${BUILD_ONLY}" -eq 1 ]]; then
+  echo "Building ${IMAGE_NAME} (linux/amd64)..."
+  build_image
   echo "Build complete: ${IMAGE_NAME}"
   exit 0
+fi
+
+if [[ "${REBUILD}" -eq 1 ]] || ! podman image exists "${IMAGE_NAME}" 2>/dev/null; then
+  if [[ "${REBUILD}" -eq 1 ]]; then
+    echo "Rebuilding ${IMAGE_NAME} (linux/amd64)..."
+  else
+    echo "Image ${IMAGE_NAME} not found; building (linux/amd64)..."
+  fi
+  build_image
+else
+  echo "Using existing image ${IMAGE_NAME} (pass --rebuild to rebuild from Containerfile)."
 fi
 
 if [[ ! -f "${PULL_SECRET}" ]]; then
