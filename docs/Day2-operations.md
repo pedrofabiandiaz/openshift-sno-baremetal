@@ -21,7 +21,7 @@ The following lists details these configurations:
 * Configure the maximum number of pods per node.  
 * Enable Device Manager.  
 * [Configure users](https://docs.redhat.com/de/documentation/openshift_container_platform/4.20/html/postinstallation_configuration/post-install-preparing-for-users): Users can authenticate themselves to the API by using OAuth access tokens. You can configure OAuth to perform the following tasks:  
-* Specify an identity provider.  
-* Use role-based access control to define and grant permissions to users.  
+* Specify an identity provider — [HTPasswd identity provider setup](HTPASSWD_IDENTITY_PROVIDER.md).  
+* Use role-based access control to define and grant permissions to users — [HTPasswd identity provider setup](HTPASSWD_IDENTITY_PROVIDER.md#6-grant-cluster-roles-optional).  
 * Install an Operator from the software catalog.  
 * [Configuring alert notifications](https://docs.redhat.com/de/documentation/openshift_container_platform/4.20/html/postinstallation_configuration/configuring-alert-notifications): By default, firing alerts are displayed on the Alerting UI of the web console. You can also configure OpenShift Container Platform to send alert notifications to external systems.
