@@ -74,7 +74,7 @@ pull_one() {
   fi
 
   echo "[PULL] $pull_spec -> $dest_dir" >&2
-  if skopeo copy "${SKOPEO_AUTH[@]}" --all "docker://${pull_spec}" "dir:${dest_dir}"; then
+  if skopeo copy "${SKOPEO_AUTH[@]}" --preserve-digests --all "docker://${pull_spec}" "dir:${dest_dir}"; then
     echo "[OK]   $pull_spec" >&2
   else
     echo "[FAIL] $pull_spec" >&2
