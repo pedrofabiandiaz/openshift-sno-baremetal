@@ -4,7 +4,7 @@ The following lists details these configurations:
 
 * [Configure operating system features](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/machine_configuration/#machine-config-overview): The Machine Config Operator (MCO) manages `MachineConfig` objects. By using the MCO, you can configure nodes and custom resources.  
 * [Configure cluster features](https://docs.redhat.com/de/documentation/openshift_container_platform/4.20/html/postinstallation_configuration/post-install-cluster-tasks). You can modify the following features of an OpenShift Container Platform cluster:  
-* Image registry  
+* Image registry — [Local Storage Operator on SNO](LOCAL_STORAGE_OPERATOR_SNO.md)  
 * Networking configuration  
 * Image build behavior  
 * Identity provider  
