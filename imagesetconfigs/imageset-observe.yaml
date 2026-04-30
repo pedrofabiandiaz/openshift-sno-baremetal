@@ -1,0 +1,21 @@
+# ImageSetConfiguration for Red Hat OpenShift AI (RHOAI, formerly RHODS)
+# Use with: oc mirror --config imageset-rhoai.yaml file:///path/to/mirror-dir
+# For full air-gapped install, combine platform section from imageset-config.yaml
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v1alpha2
+mirror:
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.20
+    packages:
+    - name: cluster-observability-operator
+      defaultChannel: stable
+      channels:
+      - name: stable
+    - name: tempo-product
+      defaultChannel: stable
+      channels:
+      - name: stable
+    - name: opentelemetry-product
+      defaultChannel: stable
+      channels:
+      - name: stable

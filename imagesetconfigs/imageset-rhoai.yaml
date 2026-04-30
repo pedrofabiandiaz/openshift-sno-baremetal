@@ -11,14 +11,13 @@ mirror:
       defaultChannel: stable-3.3
       channels:
       - name: stable-3.3
-        minVersion: 3.3.0
-        maxVersion: 3.3.0
+        minVersion: 3.3.1
+        maxVersion: 3.3.1
     - name: servicemeshoperator3
       defaultChannel: stable
       channels:
       - name: stable
-        minVersion: 3.1.0
-        maxVersion: 3.2.1
+        minVersion: 3.3.1
     - name: nfd # Node Feature Discovery Operator
       defaultChannel: stable
       channels:

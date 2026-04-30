@@ -1,0 +1,53 @@
+# ImageSetConfiguration for Red Hat OpenShift AI (RHOAI, formerly RHODS)
+# Use with: oc mirror --config imageset-rhoai.yaml file:///path/to/mirror-dir
+# For full air-gapped install, combine platform section from imageset-config.yaml
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v1alpha2
+mirror:
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.20
+    packages:
+    - name: odf-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: odf-dependencies
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: cephcsi-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: ocs-client-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: odf-csi-addons-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: ocs-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: odr-recipe-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: odf-prometheus-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: mcg-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: odf-external-snapshotter-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
+    - name: rook-ceph-operator
+      defaultChannel: stable-4.20
+      channels:
+      - name: stable-4.20
