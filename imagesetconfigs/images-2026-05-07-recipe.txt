@@ -1,0 +1,3 @@
+registry.redhat.io/lvms4/lvms-must-gather-rhel9@sha256:d264281158ca5ac4885905231900d435e273be059ec6432477da5086916a2108
+registry.redhat.io/lvms4/lvms-rhel9-operator@sha256:ffd7f0e091cbc9a788a0c857187a3a558f123b4373f33e556486a2fdf8f57d27
+registry.redhat.io/lvms4/lvms-operator-bundle@sha256:f2270236ca0f96bac3d2f616b349b3b5d44ffa3889fa91838508be3d9b58fe3b

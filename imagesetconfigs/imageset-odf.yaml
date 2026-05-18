@@ -31,7 +31,7 @@ mirror:
       defaultChannel: stable-4.20
       channels:
       - name: stable-4.20
-    - name: odr-recipe-operator
+    - name: odr-cluster-operator
       defaultChannel: stable-4.20
       channels:
       - name: stable-4.20
