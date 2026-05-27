@@ -12,7 +12,7 @@ This guide prepares a production cluster for **Red Hat OpenShift AI (RHOAI)** in
 |-----------|--------|
 | **OpenShift version** | **4.20.17** |
 | **Control plane** | **3** nodes — no user workloads |
-| **Workers** | **6 or 7** nodes |
+| **Workers** | **3** nodes — GPU workloads and applications |
 | **Access** | `cluster-admin`, `oc` CLI configured |
 
 This document applies to a production-style cluster.
@@ -20,6 +20,45 @@ This document applies to a production-style cluster.
 **RHOAI namespaces (typical):** `redhat-ods-operator`, `redhat-ods-applications` — confirm for your RHOAI version/channel.
 
 Complete the **pre-checks and resource constraints** sections before installing the Red Hat OpenShift AI Operator or creating a `DataScienceCluster`. The **optional isolation** section can be pursued later if the customer approves dedicated AI workers and the associated drain or scale-out work.
+
+### Cluster hardware (Dell XE9680)
+
+| Item | Per node (control plane and worker) |
+|------|-------------------------------------|
+| **Platform** | Dell PowerEdge XE9680 |
+| **GPU** | **8× NVIDIA H200** (workers; confirm GPU operator advertises `nvidia.com/gpu`) |
+| **CPU** | 2× Intel Xeon Platinum **8568Y** (48 cores/socket → **96 physical cores**, **192 vCPUs** with HT) |
+| **Memory** | **2 TiB** RAM |
+
+| Role | Count | Scheduling |
+|------|-------|------------|
+| Control plane | **3** | OpenShift control plane only (`NoSchedule` on masters) |
+| Worker | **3** | User applications and RHOAI |
+
+### Planning capacity (workers)
+
+After install, confirm **allocatable** (below is a planning baseline; OpenShift reserves CPU/memory for system daemons—values are usually slightly below capacity):
+
+| Resource | Per worker (planning) | **3 workers (planning total)** |
+|----------|----------------------|--------------------------------|
+| CPU (allocatable) | ~**191** cores | ~**573** cores |
+| Memory (allocatable) | ~**2000 GiB** | ~**6000 GiB** |
+| `nvidia.com/gpu` | **8** | **24** |
+
+```bash
+# Verify on the live cluster and adjust quotas if allocatable differs
+oc get nodes -l node-role.kubernetes.io/worker -o custom-columns=\
+NAME:.metadata.name,CPU:.status.allocatable.cpu,MEM:.status.allocatable.memory,GPU:.status.allocatable.'nvidia\.com/gpu'
+```
+
+**Quota profiles in this document:**
+
+| Profile | Use when | RHOAI share of worker fleet |
+|---------|----------|-----------------------------|
+| **A — Shared workers (default)** | No node isolation; 3 workers shared | ~50% CPU/memory requests, ~16 GPUs |
+| **B — Optional isolation** | Customer dedicates **2** workers to AI, **1** to apps | ~90% of **2** workers for RHOAI |
+
+Leave headroom above RHOAI quotas for existing application **requests**, daemonsets, and burst **limits**.
 
 ---
 
@@ -49,7 +88,7 @@ Complete the **pre-checks and resource constraints** sections before installing 
 | **Pre-checks and resource constraints** | **Yes** | Before operator install | Control plane headroom, predictable app capacity, hard caps on AI namespaces, safe disruption during upgrades |
 | **Node isolation** | **Optional** | If customer approves | Scheduling separation so AI pods do not compete with applications on the same nodes |
 
-Pre-checks do not require final instance sizes, but **resource quota values** should be updated once worker CPU, memory, and GPU counts are documented. If isolation is adopted, revisit quotas to match the dedicated AI worker pool.
+Resource quotas in [section 2.3](#23-resource-quotas-for-openshift-ai-namespaces) are tuned for the Dell XE9680 fleet above. Reconcile against live `allocatable` after nodes join; if optional isolation is adopted, switch to **Profile B**.
 
 ```text
 Pre-checks + constraints  →  Install RHOAI operator  →  Enable DS components
@@ -91,7 +130,7 @@ oc get nodes -l node-role.kubernetes.io/control-plane
 oc get nodes -l node-role.kubernetes.io/worker --no-headers | wc -l
 ```
 
-Expect **3** control plane nodes and **6 or 7** workers in `Ready` state.
+Expect **3** control plane nodes and **3** workers in `Ready` state.
 
 #### ClusterOperators and API health
 
@@ -154,6 +193,7 @@ Control plane nodes should show **low** workload allocation. Heavy application u
 |-------|------|
 | Version | **4.20.17** reported by `oc version` |
 | Control plane | **3** nodes `Ready`, no memory/disk pressure |
+| Workers | **3** Dell XE9680 workers `Ready`; allocatable matches [planning table](#cluster-hardware-dell-xe9680) |
 | etcd | Quorum healthy; leader on all members |
 | ClusterOperators | No unexpected `Degraded` |
 | API | `/readyz` ok; 5xx near baseline |
@@ -248,9 +288,9 @@ spec:
 oc apply -f example-patch-resources.yaml
 ```
 
-#### Document cluster allocatable (for quota sizing later)
+#### Document cluster allocatable
 
-When instance sizes are available, record per-worker capacity:
+Compare live allocatable to the [planning table](#cluster-hardware-dell-xe9680):
 
 ```bash
 oc get nodes -l node-role.kubernetes.io/worker \
@@ -276,32 +316,35 @@ oc create namespace redhat-ods-operator --dry-run=client -o yaml | oc apply -f -
 oc create namespace redhat-ods-applications --dry-run=client -o yaml | oc apply -f -
 ```
 
-#### Derive quota values (when sizing is known)
+#### Quota sizing summary (Dell XE9680, 3 workers)
 
-Use a fraction of the capacity you intend to reserve for OpenShift AI. If optional isolation is adopted, base quotas on the dedicated AI worker pool; otherwise use a conservative fraction of total worker allocatable:
+| Namespace | Profile A (shared) | Profile B (2 AI workers, optional isolation) |
+|-----------|-------------------|---------------------------------------------|
+| `redhat-ods-operator` | 32 CPU req / 128 Gi mem req | Same |
+| `redhat-ods-applications` | 285 CPU req / 3000 Gi mem req / **16** GPU req | 340 CPU req / 3600 Gi mem req / **14** GPU req |
+
+Profile A leaves roughly half of worker **requests** for existing applications and system daemons on the same 3 nodes. Profile B applies when two XE9680 workers are tainted for RHOAI only.
 
 ```bash
-# If AI nodes are labeled — sum those; else use total worker allocatable as upper bound
+# Sum allocatable by pool after optional isolation labels exist
 oc get nodes -o json | jq '[.items[] | select(
-  .metadata.labels["node.openshift.io/rhoai"] == "true" or
-  (.metadata.labels["node-role.kubernetes.io/worker"] and
-   .metadata.labels["node.openshift.io/rhoai"] != "true")
+  .metadata.labels["node-role.kubernetes.io/worker"] or
+  .metadata.labels["node.openshift.io/rhoai"] == "true"
 )] | group_by(.metadata.labels["node.openshift.io/rhoai"] == "true") |
   map({
-    pool: (if .[0].metadata.labels["node.openshift.io/rhoai"] == "true" then "ai" else "general" end),
+    pool: (if (.[0].metadata.labels["node.openshift.io/rhoai"] == "true") then "ai" else "general" end),
     nodes: length,
     cpu: (map(.status.allocatable.cpu) | join(",")),
-    memory: (map(.status.allocatable.memory) | join(","))
+    memory: (map(.status.allocatable.memory) | join(",")),
+    gpu: (map(.status.allocatable["nvidia.com/gpu"] // "0") | join(","))
   })'
 ```
-
-Set `spec.hard` in each quota **below** the allocatable sum you allocate to RHOAI. Until sizing is finalized, use conservative placeholders and tighten when instance sizes are documented (and again if optional isolation is implemented).
 
 #### ResourceQuota — `redhat-ods-operator`
 
 ```yaml
 # resourcequota-redhat-ods-operator.yaml
-# Tune requests.* and limits.* when instance sizes are documented
+# Dell XE9680 fleet — operator control plane (all profiles)
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -309,22 +352,22 @@ metadata:
   namespace: redhat-ods-operator
 spec:
   hard:
-    requests.cpu: "8"
-    requests.memory: "32Gi"
-    limits.cpu: "16"
-    limits.memory: "64Gi"
-    pods: "80"
-    persistentvolumeclaims: "20"
-    services: "30"
-    secrets: "100"
-    configmaps: "100"
+    requests.cpu: "32"
+    requests.memory: "128Gi"
+    limits.cpu: "64"
+    limits.memory: "256Gi"
+    pods: "120"
+    persistentvolumeclaims: "30"
+    services: "40"
+    secrets: "150"
+    configmaps: "150"
 ```
 
-#### ResourceQuota — `redhat-ods-applications`
+#### ResourceQuota — `redhat-ods-applications` (Profile A — default, 3 shared workers)
 
 ```yaml
 # resourcequota-redhat-ods-applications.yaml
-# Tune when AI worker CPU/memory/GPU totals are known
+# Profile A: ~50% of 3× XE9680 worker allocatable; 16 of 24 H200 GPUs
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -332,21 +375,47 @@ metadata:
   namespace: redhat-ods-applications
 spec:
   hard:
-    requests.cpu: "48"
-    requests.memory: "192Gi"
-    limits.cpu: "64"
-    limits.memory: "256Gi"
-    pods: "300"
-    persistentvolumeclaims: "80"
-    requests.storage: "1Ti"
-    # Uncomment and set when GPU count is known:
-    # requests.nvidia.com/gpu: "4"
-    # limits.nvidia.com/gpu: "4"
+    requests.cpu: "285"
+    requests.memory: "3000Gi"
+    limits.cpu: "380"
+    limits.memory: "4000Gi"
+    pods: "400"
+    persistentvolumeclaims: "100"
+    requests.storage: "4Ti"
+    requests.nvidia.com/gpu: "16"
+    limits.nvidia.com/gpu: "18"
+```
+
+#### ResourceQuota — `redhat-ods-applications` (Profile B — optional, 2 dedicated AI workers)
+
+Use only if two workers are isolated for RHOAI (~382 CPU / ~4000 GiB / 16 GPUs planning allocatable). Replace Profile A file or apply as a separate revision after customer approval:
+
+```yaml
+# resourcequota-redhat-ods-applications-profile-b.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: rhoai-applications-quota
+  namespace: redhat-ods-applications
+spec:
+  hard:
+    requests.cpu: "340"
+    requests.memory: "3600Gi"
+    limits.cpu: "360"
+    limits.memory: "3800Gi"
+    pods: "400"
+    persistentvolumeclaims: "100"
+    requests.storage: "4Ti"
+    requests.nvidia.com/gpu: "14"
+    limits.nvidia.com/gpu: "16"
 ```
 
 ```bash
 oc apply -f resourcequota-redhat-ods-operator.yaml
-oc apply -f resourcequota-redhat-ods-applications.yaml
+oc apply -f resourcequota-redhat-ods-applications.yaml   # Profile A
+
+# If optional isolation (2 AI workers) is approved, replace applications quota:
+# oc apply -f resourcequota-redhat-ods-applications-profile-b.yaml
 ```
 
 #### Monitor quota usage
@@ -399,6 +468,8 @@ oc apply -f limitrange-app-namespace.yaml
 
 #### RHOAI applications namespace
 
+Sized for large notebook/training pods on XE9680 (up to roughly half a node per container; GPU count still bounded by ResourceQuota):
+
 ```yaml
 # limitrange-redhat-ods-applications.yaml
 apiVersion: v1
@@ -410,8 +481,8 @@ spec:
   limits:
     - type: Container
       max:
-        cpu: "16"
-        memory: "64Gi"
+        cpu: "96"
+        memory: "512Gi"
       maxLimitRequestRatio:
         cpu: "4"
         memory: "2"
@@ -504,7 +575,7 @@ oc get pods -n redhat-ods-operator
 oc get pods -n redhat-ods-applications
 ```
 
-Proceed to **operator subscription and DataScienceCluster** only when the pre-install checklist items are complete. Revisit quota values after instance sizes are recorded, and again if optional isolation is implemented.
+Proceed to **operator subscription and DataScienceCluster** only when the pre-install checklist items are complete. If optional isolation is implemented, switch applications quota to **Profile B**.
 
 ---
 
@@ -519,13 +590,13 @@ When adopted, physical and scheduling isolation is the strongest guarantee that 
 | Factor | Favor optional isolation | Favor quotas/limits only |
 |--------|--------------------------|---------------------------|
 | Customer appetite | Willing to drain/relabel workers or add a MachinePool | Wants minimal cluster change |
-| Capacity | Can spare 2–3 of 6–7 workers for AI/GPU | All workers needed for existing apps |
+| Capacity | Can dedicate **2 of 3** XE9680 workers to AI (1 for apps) | All **3** workers needed for existing apps on shared nodes |
 | Risk tolerance | Low tolerance for AI/app contention on same nodes | Accept shared workers with hard quotas |
 | Operations | Can maintain separate node pools | Prefer single worker pool |
 
 | Mechanism | Purpose |
 |-----------|---------|
-| Dedicated AI workers | Reserve 2–3 of 6–7 workers for GPU/AI workloads |
+| Dedicated AI workers | Reserve **2 of 3** XE9680 workers for GPU/AI (only practical split on this fleet) |
 | Taint `env=openshift-ai:NoSchedule` | Block non-AI pods from AI nodes |
 | Tolerations on RHOAI pods | Allow AI only on dedicated nodes |
 | Recalculate ResourceQuota | Align quotas from [section 2.3](#23-resource-quotas-for-openshift-ai-namespaces) with AI node allocatable |
@@ -539,16 +610,17 @@ When adopted, physical and scheduling isolation is the strongest guarantee that 
 
 ### 3.1 Planning worker layout
 
-When instance sizes and GPU counts are documented, choose a split:
+On this fleet there are only **3** Dell XE9680 workers (192 vCPUs, 2 TiB RAM, 8× H200 each). Optional isolation is a **hard trade-off**:
 
-| Total workers | General (`worker`) | Dedicated AI (`rhoai`) |
-|---------------|-------------------|-------------------------|
-| **6** | 3–4 | 2 |
-| **7** | 3–4 | 3 |
+| Layout | General (`worker`) | Dedicated AI (`rhoai`) | Notes |
+|--------|-------------------|-------------------------|--------|
+| **Default (Profile A)** | **3** (shared) | **0** | Rely on ResourceQuota + app requests/limits |
+| **Optional isolation (Profile B)** | **1** | **2** | Apps must fit on **one** XE9680; RHOAI on two nodes (~16 GPUs, ~382 CPU req cap) |
+| **Not recommended** | **2** | **1** | Insufficient GPU/CPU pool for RHOAI at scale |
 
-Control plane nodes must not run application or RHOAI pods.
+Control plane nodes (same hardware class, **3** nodes) must not run application or RHOAI pods.
 
-After dedicating nodes, **update ResourceQuota** in [section 2.3](#23-resource-quotas-for-openshift-ai-namespaces) to match the AI pool allocatable.
+If isolation is approved, apply **Profile B** quotas from [section 2.3](#23-resource-quotas-for-openshift-ai-namespaces) and drain/label the two AI workers.
 
 ---
 
@@ -569,11 +641,12 @@ oc get machinepool -n openshift-machine-api 2>/dev/null
 # install-config.yaml (excerpt) — platform section varies
 compute:
   - name: worker
-    replicas: 4
-    platform: {}   # your general worker type
+    replicas: 1
+    platform: {}   # general apps — Dell XE9680
   - name: rhoai
-    replicas: 3
-    platform: {}   # your GPU worker type
+    replicas: 2
+    platform: {}   # RHOAI / GPU — Dell XE9680, 8× H200
+# Total workers: 3 (matches this environment)
 ```
 
 ```bash
@@ -583,7 +656,7 @@ oc get nodes -l node-role.kubernetes.io/rhoai
 #### Option B — Repurpose existing workers
 
 ```bash
-AI_NODES="worker-4.example.com worker-5.example.com worker-6.example.com"
+AI_NODES="xe9680-worker-02.example.com xe9680-worker-03.example.com"
 
 for n in $AI_NODES; do
   oc cordon "$n"
@@ -611,7 +684,7 @@ metadata:
   name: rhoai-worker
   namespace: openshift-machine-api
 spec:
-  replicas: 3
+  replicas: 2
   labels:
     node-role.kubernetes.io/rhoai: ""
   taints:
@@ -641,7 +714,7 @@ metadata:
   name: rhoai-worker
   namespace: openshift-machine-api
 spec:
-  replicas: 3
+  replicas: 2
   template:
     metadata:
       labels:
@@ -654,7 +727,7 @@ spec:
         - key: env
           value: openshift-ai
           effect: NoSchedule
-      # providerSpec: <copy from existing worker MachineSet>
+      # providerSpec: <copy from existing worker MachineSet — Dell XE9680>
 ```
 
 ```bash
@@ -665,6 +738,7 @@ oc apply -f machineset-rhoai-worker.yaml
 
 ```bash
 oc get nodes -l node.openshift.io/rhoai=true -o wide
+# Expect 2 nodes if using Profile B; 0 if staying on Profile A (shared workers)
 ```
 
 ---
@@ -720,7 +794,7 @@ oc get nodes -l node.openshift.io/rhoai=true -o json | jq '
   [.items[].status.allocatable] | {nodes: length, resources: .}'
 ```
 
-Update `resourcequota-redhat-ods-*.yaml` and re-apply.
+Apply **Profile B** `resourcequota-redhat-ods-applications-profile-b.yaml` and re-apply operator quota if needed.
 
 ---
 
@@ -728,12 +802,13 @@ Update `resourcequota-redhat-ods-*.yaml` and re-apply.
 
 ### Required before operator install
 
-- [ ] Cluster is **OpenShift 4.20.17** with **3** control planes and **6 or 7** workers
+- [ ] Cluster is **OpenShift 4.20.17** with **3** control planes and **3** Dell XE9680 workers
 - [ ] Control plane pre-checks passed (ClusterOperators, `/readyz`, etcd quorum)
 - [ ] API/etcd monitoring baseline captured
 - [ ] Existing production deployments audited; requests/limits set (or LimitRange on app namespaces)
 - [ ] `redhat-ods-operator` and `redhat-ods-applications` namespaces exist
-- [ ] ResourceQuota applied to both RHOAI namespaces (values documented or marked TBD until sizing known)
+- [ ] ResourceQuota applied: **Profile A** (shared workers) or **Profile B** documented if isolation approved
+- [ ] Live worker `allocatable` compared to [planning table](#cluster-hardware-dell-xe9680)
 - [ ] LimitRange applied where appropriate
 - [ ] PDBs verified for mission-critical HA applications
 
@@ -742,7 +817,7 @@ Update `resourcequota-redhat-ods-*.yaml` and re-apply.
 - [ ] Customer decision recorded: pursue isolation **yes / no**
 - [ ] Worker sizing and GPU layout documented (if yes)
 - [ ] Drain dry-run passed for any worker to be repurposed (if yes)
-- [ ] **2–3** workers dedicated to AI; **3–4** remain for general applications (if yes)
+- [ ] **2** workers dedicated to AI and **1** to general applications (if yes — only viable split on this fleet)
 - [ ] AI nodes labeled `node.openshift.io/rhoai=true` (if yes)
 - [ ] Taint `env=openshift-ai:NoSchedule` applied; RHOAI tolerations configured (if yes)
 - [ ] No application pods on AI nodes without toleration (if yes)
