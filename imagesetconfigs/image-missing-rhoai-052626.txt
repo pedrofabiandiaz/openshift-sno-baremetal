@@ -1,0 +1,2 @@
+registry.redhat.io/rhoai/odh-rhel9-operator@sha256:6762da6295cf1a1529fb43990f8745aa2db3235d4ce86c795c5897245c4fd8c7
+registry.redhat.io/openshift-service-mesh/istio-rhel9-operator@sha256:3b62b9e5692f2a8559b1b4a3e6f8f7024c3faa8105f643c42da6d1750b04d0bf
