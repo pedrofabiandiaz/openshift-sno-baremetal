@@ -209,7 +209,7 @@ inspect_one() {
   local upstream="$1"
   local mirrored mapped=1
   mirrored="$(map_ref_to_mirror "$upstream")" || mapped=0
-  if skopeo inspect "${SKOPEO_AUTH[@]}" "${SKOPEO_TLS[@]}" "docker://${mirrored}" >/dev/null 2>&1; then
+  if skopeo inspect --no-tags "${SKOPEO_AUTH[@]}" "${SKOPEO_TLS[@]}" "docker://${mirrored}" >/dev/null 2>&1; then
     if [[ "$CHECK_VERBOSE" == "1" ]]; then
       echo "[OK]   ${upstream} -> ${mirrored}" >&2
     fi
